@@ -88,6 +88,29 @@ p {
   gap: 10px;
 }
 
+.custom-lyrics-admin {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.custom-lyrics-admin h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+.custom-lyrics-form {
+  display: grid;
+  gap: 8px;
+}
+
+.custom-lyrics-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .admin-ok {
   color: #b8f8c8;
 }
@@ -114,6 +137,15 @@ input {
   border: 1px solid #8f88a6;
   background: #1d1f31;
   color: #fff;
+}
+
+textarea {
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #8f88a6;
+  background: #1d1f31;
+  color: #fff;
+  font-family: inherit;
 }
 
 button {

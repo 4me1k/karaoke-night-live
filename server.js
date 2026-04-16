@@ -7,12 +7,59 @@ const { URL } = require("url");
 const PORT = process.env.PORT || 3000;
 const ADMIN_PIN = process.env.ADMIN_PIN || "karaoke123";
 const PUBLIC_DIR = path.join(__dirname, "public");
+const DATA_DIR = path.join(__dirname, "data");
+const CUSTOM_LYRICS_FILE = path.join(DATA_DIR, "custom-lyrics.json");
 
 let queue = [];
 let currentSong = null;
 let nextId = 1;
 const sseClients = new Set();
 const lyricsCache = new Map();
+const customLyrics = new Map();
+
+function normalizeLyricsKeyPart(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/[\u0591-\u05C7]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function makeLyricsKey(artist, song) {
+  return `${normalizeLyricsKeyPart(artist)}::${normalizeLyricsKeyPart(song)}`;
+}
+
+function loadCustomLyrics() {
+  try {
+    const fileData = fs.readFileSync(CUSTOM_LYRICS_FILE, "utf-8");
+    const parsed = JSON.parse(fileData);
+    if (!Array.isArray(parsed)) return;
+
+    for (const item of parsed) {
+      const artist = String(item.artist || "").trim();
+      const song = String(item.song || "").trim();
+      const lyrics = String(item.lyrics || "").trim();
+      if (!artist || !song || !lyrics) continue;
+
+      customLyrics.set(makeLyricsKey(artist, song), {
+        artist,
+        song,
+        lyrics,
+        updatedAt: Number(item.updatedAt) || Date.now()
+      });
+    }
+  } catch (_error) {
+    // No custom lyrics file yet.
+  }
+}
+
+function saveCustomLyrics() {
+  const payload = Array.from(customLyrics.values());
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  fs.writeFileSync(CUSTOM_LYRICS_FILE, JSON.stringify(payload, null, 2), "utf-8");
+}
 
 function getState() {
   return { currentSong, queue };
@@ -104,7 +151,18 @@ async function fetchFromLrcLib(artist, song) {
 }
 
 async function getLyrics(artist, song) {
-  const cacheKey = `${artist.toLowerCase()}::${song.toLowerCase()}`;
+  const lyricsKey = makeLyricsKey(artist, song);
+  const manualLyrics = customLyrics.get(lyricsKey);
+  if (manualLyrics) {
+    return {
+      artist: manualLyrics.artist,
+      song: manualLyrics.song,
+      lyrics: manualLyrics.lyrics,
+      source: "manual"
+    };
+  }
+
+  const cacheKey = lyricsKey;
   if (lyricsCache.has(cacheKey)) {
     return lyricsCache.get(cacheKey);
   }
@@ -132,7 +190,8 @@ async function getLyrics(artist, song) {
   const result = {
     artist,
     song,
-    lyrics
+    lyrics,
+    source: "auto"
   };
   lyricsCache.set(cacheKey, result);
   return result;
@@ -200,6 +259,8 @@ function serveStatic(requestPath, response) {
     response.end(fileData);
   });
 }
+
+loadCustomLyrics();
 
 const server = http.createServer(async (request, response) => {
   const parsedUrl = new URL(request.url, `http://${request.headers.host}`);
@@ -286,6 +347,36 @@ const server = http.createServer(async (request, response) => {
         return;
       }
 
+      sendJson(response, 200, { ok: true });
+      return;
+    } catch (_error) {
+      sendJson(response, 400, { error: "Invalid request body." });
+      return;
+    }
+  }
+
+  if (request.method === "POST" && pathname === "/api/lyrics/custom") {
+    if (!requireAdmin(request, response)) return;
+    try {
+      const payload = await parseBody(request);
+      const artist = String(payload.artist || "").trim();
+      const song = String(payload.song || "").trim();
+      const lyrics = String(payload.lyrics || "").trim();
+
+      if (!artist || !song || !lyrics) {
+        sendJson(response, 400, { error: "Artist, song and lyrics are required." });
+        return;
+      }
+
+      const key = makeLyricsKey(artist, song);
+      customLyrics.set(key, {
+        artist,
+        song,
+        lyrics,
+        updatedAt: Date.now()
+      });
+      lyricsCache.delete(key);
+      saveCustomLyrics();
       sendJson(response, 200, { ok: true });
       return;
     } catch (_error) {

@@ -18,6 +18,7 @@ Simple real-time karaoke queue app for parties.
   - Move to next song
   - Reset queue
   - Remove a specific song from queue
+  - Save custom lyrics for songs (useful for Hebrew songs missing in providers)
 
 ## Run locally
 
@@ -48,3 +49,4 @@ Open the same URL on multiple devices in the same network (using your computer I
 - Lyrics are fetched live from multiple public providers (`lyrics.ovh` + `lrclib.net`) using song + artist.
 - The extra source helps with broader language coverage, including many Hebrew songs.
 - If no lyrics are found (or provider is down), the app shows a friendly fallback message.
+- Admin can add manual lyrics from the Host Admin panel; those custom lyrics are used first and saved locally.

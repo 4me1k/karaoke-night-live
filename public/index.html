@@ -38,6 +38,28 @@
         </form>
         <div id="adminSession" class="admin-session hidden">
           <p class="admin-ok">Admin mode enabled.</p>
+          <section class="custom-lyrics-admin">
+            <h3>Add Custom Lyrics (Hebrew)</h3>
+            <form id="customLyricsForm" class="custom-lyrics-form">
+              <label>
+                Song
+                <input id="customLyricsSong" type="text" placeholder="Current song name" />
+              </label>
+              <label>
+                Artist
+                <input id="customLyricsArtist" type="text" placeholder="Current artist name" />
+              </label>
+              <label>
+                Lyrics
+                <textarea id="customLyricsText" rows="7" placeholder="Paste lyrics here"></textarea>
+              </label>
+              <div class="custom-lyrics-actions">
+                <button id="fillCurrentSongButton" type="button">Use Current Song</button>
+                <button id="openShironetButton" type="button">Open Shironet Search</button>
+                <button type="submit">Save Custom Lyrics</button>
+              </div>
+            </form>
+          </section>
           <button id="adminLogoutButton" type="button" class="danger">Logout Admin</button>
         </div>
       </section>

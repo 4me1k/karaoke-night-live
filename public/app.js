@@ -17,6 +17,11 @@ const adminForm = document.getElementById("adminForm");
 const adminPinInput = document.getElementById("adminPin");
 const adminSession = document.getElementById("adminSession");
 const adminLogoutButton = document.getElementById("adminLogoutButton");
+const customLyricsForm = document.getElementById("customLyricsForm");
+const customLyricsSong = document.getElementById("customLyricsSong");
+const customLyricsArtist = document.getElementById("customLyricsArtist");
+const customLyricsText = document.getElementById("customLyricsText");
+const fillCurrentSongButton = document.getElementById("fillCurrentSongButton");
 const qrImage = document.getElementById("qrImage");
 const shareUrlText = document.getElementById("shareUrl");
 const copyLinkButton = document.getElementById("copyLinkButton");
@@ -28,6 +33,7 @@ let isAdmin = false;
 let isTvMode = false;
 let currentLyricsKey = "";
 let lyricsRequestToken = 0;
+let latestState = { currentSong: null, queue: [] };
 
 function showStatus(message, isError = false) {
   statusMessage.textContent = message;
@@ -70,7 +76,7 @@ function setLyricsText(metaText, bodyText) {
   lyricsContent.textContent = bodyText;
 }
 
-function loadLyricsForCurrentSong(item) {
+function loadLyricsForCurrentSong(item, forceReload = false) {
   if (!item) {
     currentLyricsKey = "";
     setLyricsText("Lyrics will appear for the current song.", "No song playing yet.");
@@ -78,7 +84,7 @@ function loadLyricsForCurrentSong(item) {
   }
 
   const nextKey = `${item.artist}::${item.song}`.toLowerCase();
-  if (nextKey === currentLyricsKey) return;
+  if (!forceReload && nextKey === currentLyricsKey) return;
   currentLyricsKey = nextKey;
   lyricsRequestToken += 1;
   const requestToken = lyricsRequestToken;
@@ -93,7 +99,11 @@ function loadLyricsForCurrentSong(item) {
         throw new Error(data.error || "Lyrics not found.");
       }
       if (requestToken !== lyricsRequestToken) return;
-      setLyricsText(`Lyrics for ${data.song} - ${data.artist}`, data.lyrics || "Lyrics unavailable.");
+      const sourceLabel = data.source === "manual" ? " (custom)" : "";
+      setLyricsText(
+        `Lyrics for ${data.song} - ${data.artist}${sourceLabel}`,
+        data.lyrics || "Lyrics unavailable."
+      );
     })
     .catch((error) => {
       if (requestToken !== lyricsRequestToken) return;
@@ -260,6 +270,59 @@ adminLogoutButton.addEventListener("click", () => {
     .catch(() => {});
 });
 
+fillCurrentSongButton.addEventListener("click", () => {
+  const now = latestState.currentSong;
+  if (!now) {
+    showStatus("No current song to prefill.", true);
+    return;
+  }
+
+  customLyricsSong.value = now.song;
+  customLyricsArtist.value = now.artist;
+  customLyricsText.focus();
+});
+
+customLyricsForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+
+  const song = customLyricsSong.value.trim();
+  const artist = customLyricsArtist.value.trim();
+  const lyrics = customLyricsText.value.trim();
+
+  if (!song || !artist || !lyrics) {
+    showStatus("Please fill song, artist, and lyrics.", true);
+    return;
+  }
+
+  fetch("/api/lyrics/custom", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getAdminHeaders() },
+    body: JSON.stringify({ song, artist, lyrics })
+  })
+    .then(async (response) => {
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || "Could not save custom lyrics.");
+      }
+      showStatus("Custom lyrics saved.");
+      if (
+        latestState.currentSong &&
+        latestState.currentSong.song.toLowerCase() === song.toLowerCase() &&
+        latestState.currentSong.artist.toLowerCase() === artist.toLowerCase()
+      ) {
+        loadLyricsForCurrentSong(latestState.currentSong, true);
+      }
+    })
+    .catch((error) => {
+      showStatus(error.message, true);
+      if (error.message.includes("Admin access")) {
+        adminPin = "";
+        localStorage.removeItem(ADMIN_PIN_STORAGE_KEY);
+        setAdminUI(false);
+      }
+    });
+});
+
 form.addEventListener("submit", (event) => {
   event.preventDefault();
 
@@ -359,6 +422,7 @@ resetButton.addEventListener("click", () => {
 const events = new EventSource("/api/events");
 events.onmessage = (event) => {
   const data = JSON.parse(event.data);
+  latestState = data;
   renderCurrentSong(data.currentSong);
   renderNextSong(data.queue || []);
   loadLyricsForCurrentSong(data.currentSong);
@@ -371,6 +435,7 @@ events.onerror = () => {
 fetch("/api/state")
   .then((response) => response.json())
   .then((data) => {
+    latestState = data;
     renderCurrentSong(data.currentSong);
     renderNextSong(data.queue || []);
     loadLyricsForCurrentSong(data.currentSong);
