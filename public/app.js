@@ -12,9 +12,13 @@ const adminLogoutButton = document.getElementById("adminLogoutButton");
 const qrImage = document.getElementById("qrImage");
 const shareUrlText = document.getElementById("shareUrl");
 const copyLinkButton = document.getElementById("copyLinkButton");
+const lyricsMeta = document.getElementById("lyricsMeta");
+const lyricsContent = document.getElementById("lyricsContent");
 const ADMIN_PIN_STORAGE_KEY = "karaoke-admin-pin";
 let adminPin = localStorage.getItem(ADMIN_PIN_STORAGE_KEY) || "";
 let isAdmin = false;
+let currentLyricsKey = "";
+let lyricsRequestToken = 0;
 
 function showStatus(message, isError = false) {
   statusMessage.textContent = message;
@@ -33,6 +37,45 @@ function renderCurrentSong(item) {
     <strong>${item.song}</strong> - ${item.artist}<br/>
     <span>Requested by ${item.requester}</span>
   `;
+}
+
+function setLyricsText(metaText, bodyText) {
+  lyricsMeta.textContent = metaText;
+  lyricsContent.textContent = bodyText;
+}
+
+function loadLyricsForCurrentSong(item) {
+  if (!item) {
+    currentLyricsKey = "";
+    setLyricsText("Lyrics will appear for the current song.", "No song playing yet.");
+    return;
+  }
+
+  const nextKey = `${item.artist}::${item.song}`.toLowerCase();
+  if (nextKey === currentLyricsKey) return;
+  currentLyricsKey = nextKey;
+  lyricsRequestToken += 1;
+  const requestToken = lyricsRequestToken;
+
+  setLyricsText(`Loading lyrics for ${item.song} - ${item.artist}...`, "Please wait...");
+
+  const params = new URLSearchParams({ artist: item.artist, song: item.song });
+  fetch(`/api/lyrics?${params.toString()}`)
+    .then(async (response) => {
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Lyrics not found.");
+      }
+      if (requestToken !== lyricsRequestToken) return;
+      setLyricsText(`Lyrics for ${data.song} - ${data.artist}`, data.lyrics || "Lyrics unavailable.");
+    })
+    .catch((error) => {
+      if (requestToken !== lyricsRequestToken) return;
+      setLyricsText(
+        `No lyrics found for ${item.song} - ${item.artist}.`,
+        error.message || "Lyrics unavailable right now."
+      );
+    });
 }
 
 function renderQueue(queue) {
@@ -260,6 +303,7 @@ const events = new EventSource("/api/events");
 events.onmessage = (event) => {
   const data = JSON.parse(event.data);
   renderCurrentSong(data.currentSong);
+  loadLyricsForCurrentSong(data.currentSong);
   renderQueue(data.queue);
 };
 events.onerror = () => {
@@ -270,6 +314,7 @@ fetch("/api/state")
   .then((response) => response.json())
   .then((data) => {
     renderCurrentSong(data.currentSong);
+    loadLyricsForCurrentSong(data.currentSong);
     renderQueue(data.queue);
   })
   .catch(() => {

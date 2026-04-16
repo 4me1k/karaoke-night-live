@@ -13,6 +13,7 @@ Simple real-time karaoke queue app for parties.
 - Everyone sees:
   - Current song (now singing)
   - Next songs in the queue
+  - Live lyrics for current song (when available)
 - Host controls (admin PIN only):
   - Move to next song
   - Reset queue
@@ -40,3 +41,8 @@ Open the same URL on multiple devices in the same network (using your computer I
   ```bash
   ADMIN_PIN=your-secret-pin node server.js
   ```
+
+## Lyrics
+
+- Lyrics are fetched live from a public lyrics provider using song + artist.
+- If no lyrics are found (or provider is down), the app shows a friendly fallback message.

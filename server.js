@@ -1,4 +1,5 @@
 const http = require("http");
+const https = require("https");
 const fs = require("fs");
 const path = require("path");
 const { URL } = require("url");
@@ -11,6 +12,7 @@ let queue = [];
 let currentSong = null;
 let nextId = 1;
 const sseClients = new Set();
+const lyricsCache = new Map();
 
 function getState() {
   return { currentSong, queue };
@@ -27,6 +29,54 @@ function broadcastState() {
 function sendJson(response, statusCode, data) {
   response.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
   response.end(JSON.stringify(data));
+}
+
+function fetchJson(url) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(url, (response) => {
+      let rawData = "";
+      response.on("data", (chunk) => {
+        rawData += chunk.toString();
+      });
+      response.on("end", () => {
+        try {
+          const parsedData = rawData ? JSON.parse(rawData) : {};
+          resolve({ statusCode: response.statusCode || 500, data: parsedData });
+        } catch (_error) {
+          reject(new Error("Invalid response from lyrics provider."));
+        }
+      });
+    });
+
+    request.setTimeout(8000, () => {
+      request.destroy(new Error("Lyrics request timeout."));
+    });
+    request.on("error", reject);
+  });
+}
+
+async function getLyrics(artist, song) {
+  const cacheKey = `${artist.toLowerCase()}::${song.toLowerCase()}`;
+  if (lyricsCache.has(cacheKey)) {
+    return lyricsCache.get(cacheKey);
+  }
+
+  const artistParam = encodeURIComponent(artist);
+  const songParam = encodeURIComponent(song);
+  const url = `https://api.lyrics.ovh/v1/${artistParam}/${songParam}`;
+  const { statusCode, data } = await fetchJson(url);
+
+  if (statusCode >= 400 || !data.lyrics) {
+    throw new Error("Lyrics not found.");
+  }
+
+  const result = {
+    artist,
+    song,
+    lyrics: String(data.lyrics).trim()
+  };
+  lyricsCache.set(cacheKey, result);
+  return result;
 }
 
 function isAdminRequest(request) {
@@ -98,6 +148,29 @@ const server = http.createServer(async (request, response) => {
 
   if (request.method === "GET" && pathname === "/api/state") {
     sendJson(response, 200, getState());
+    return;
+  }
+
+  if (request.method === "GET" && pathname === "/api/lyrics") {
+    const song = String(parsedUrl.searchParams.get("song") || "").trim();
+    const artist = String(parsedUrl.searchParams.get("artist") || "").trim();
+
+    if (!song || !artist) {
+      sendJson(response, 400, { error: "Song and artist are required." });
+      return;
+    }
+
+    try {
+      const lyricsResult = await getLyrics(artist, song);
+      sendJson(response, 200, { ok: true, ...lyricsResult });
+    } catch (error) {
+      const message = String(error && error.message ? error.message : "");
+      if (message === "Lyrics not found.") {
+        sendJson(response, 404, { error: "Lyrics not found." });
+        return;
+      }
+      sendJson(response, 502, { error: "Lyrics service unavailable right now." });
+    }
     return;
   }
 

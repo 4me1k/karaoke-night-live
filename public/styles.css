@@ -151,6 +151,23 @@ button:hover {
   font-style: italic;
 }
 
+.lyrics-meta {
+  margin-bottom: 10px;
+  color: #ddd6f2;
+}
+
+.lyrics-content {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+  max-height: 320px;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  padding: 12px;
+}
+
 .queue-header {
   display: flex;
   justify-content: space-between;
