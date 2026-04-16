@@ -4,6 +4,9 @@ const currentSong = document.getElementById("currentSong");
 const queueList = document.getElementById("queueList");
 const nextButton = document.getElementById("nextButton");
 const resetButton = document.getElementById("resetButton");
+const qrImage = document.getElementById("qrImage");
+const shareUrlText = document.getElementById("shareUrl");
+const copyLinkButton = document.getElementById("copyLinkButton");
 
 function showStatus(message, isError = false) {
   statusMessage.textContent = message;
@@ -47,6 +50,41 @@ function renderQueue(queue) {
     queueList.appendChild(li);
   });
 }
+
+const shareUrl = window.location.origin;
+const qrProviders = [
+  "https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=",
+  "https://quickchart.io/qr?size=260&text="
+];
+let qrProviderIndex = 0;
+
+function loadQrWithFallback() {
+  if (qrProviderIndex >= qrProviders.length) {
+    qrImage.style.display = "none";
+    showStatus("QR image blocked on this network. Use copied link instead.", true);
+    return;
+  }
+
+  const provider = qrProviders[qrProviderIndex];
+  qrImage.src = `${provider}${encodeURIComponent(shareUrl)}`;
+}
+
+qrImage.addEventListener("error", () => {
+  qrProviderIndex += 1;
+  loadQrWithFallback();
+});
+
+loadQrWithFallback();
+shareUrlText.textContent = shareUrl;
+
+copyLinkButton.addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(shareUrl);
+    showStatus("Link copied. Send it to guests.");
+  } catch (_error) {
+    showStatus("Could not copy link. Please copy it manually.", true);
+  }
+});
 
 form.addEventListener("submit", (event) => {
   event.preventDefault();

@@ -8,6 +8,8 @@ Simple real-time karaoke queue app for parties.
   - Song
   - Artist
   - Requester name
+- Built-in QR code:
+  - Guests scan and open the live page quickly
 - Everyone sees:
   - Current song (now singing)
   - Next songs in the queue
