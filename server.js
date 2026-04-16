@@ -55,25 +55,84 @@ function fetchJson(url) {
   });
 }
 
+async function fetchFromLyricsOvh(artist, song) {
+  const artistParam = encodeURIComponent(artist);
+  const songParam = encodeURIComponent(song);
+  const url = `https://api.lyrics.ovh/v1/${artistParam}/${songParam}`;
+  const { statusCode, data } = await fetchJson(url);
+
+  if (statusCode === 404) return null;
+  if (statusCode >= 500) throw new Error("lyrics.ovh unavailable");
+  if (!data || !data.lyrics) return null;
+
+  const lyrics = String(data.lyrics).trim();
+  return lyrics || null;
+}
+
+async function fetchFromLrcLib(artist, song) {
+  const artistParam = encodeURIComponent(artist);
+  const songParam = encodeURIComponent(song);
+  const directUrl = `https://lrclib.net/api/get?artist_name=${artistParam}&track_name=${songParam}`;
+
+  const directResponse = await fetchJson(directUrl);
+  if (directResponse.statusCode >= 500) {
+    throw new Error("lrclib unavailable");
+  }
+
+  if (directResponse.statusCode < 400) {
+    const directData = directResponse.data || {};
+    const directLyrics = String(directData.plainLyrics || directData.syncedLyrics || "").trim();
+    if (directLyrics) return directLyrics;
+  }
+
+  const searchUrl = `https://lrclib.net/api/search?artist_name=${artistParam}&track_name=${songParam}`;
+  const searchResponse = await fetchJson(searchUrl);
+
+  if (searchResponse.statusCode >= 500) {
+    throw new Error("lrclib unavailable");
+  }
+
+  if (searchResponse.statusCode >= 400) return null;
+
+  const candidates = Array.isArray(searchResponse.data) ? searchResponse.data : [];
+  for (const item of candidates) {
+    const lyrics = String(item.plainLyrics || item.syncedLyrics || "").trim();
+    if (lyrics) return lyrics;
+  }
+
+  return null;
+}
+
 async function getLyrics(artist, song) {
   const cacheKey = `${artist.toLowerCase()}::${song.toLowerCase()}`;
   if (lyricsCache.has(cacheKey)) {
     return lyricsCache.get(cacheKey);
   }
 
-  const artistParam = encodeURIComponent(artist);
-  const songParam = encodeURIComponent(song);
-  const url = `https://api.lyrics.ovh/v1/${artistParam}/${songParam}`;
-  const { statusCode, data } = await fetchJson(url);
+  const providers = [fetchFromLyricsOvh, fetchFromLrcLib];
+  let hadServiceFailure = false;
+  let lyrics = null;
 
-  if (statusCode >= 400 || !data.lyrics) {
+  for (const provider of providers) {
+    try {
+      lyrics = await provider(artist, song);
+      if (lyrics) break;
+    } catch (_error) {
+      hadServiceFailure = true;
+    }
+  }
+
+  if (!lyrics) {
+    if (hadServiceFailure) {
+      throw new Error("Lyrics service unavailable.");
+    }
     throw new Error("Lyrics not found.");
   }
 
   const result = {
     artist,
     song,
-    lyrics: String(data.lyrics).trim()
+    lyrics
   };
   lyricsCache.set(cacheKey, result);
   return result;
@@ -169,7 +228,7 @@ const server = http.createServer(async (request, response) => {
         sendJson(response, 404, { error: "Lyrics not found." });
         return;
       }
-      sendJson(response, 502, { error: "Lyrics service unavailable right now." });
+      sendJson(response, 502, { error: "Lyrics providers unavailable right now." });
     }
     return;
   }

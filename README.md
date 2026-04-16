@@ -45,5 +45,6 @@ Open the same URL on multiple devices in the same network (using your computer I
 
 ## Lyrics
 
-- Lyrics are fetched live from a public lyrics provider using song + artist.
+- Lyrics are fetched live from multiple public providers (`lyrics.ovh` + `lrclib.net`) using song + artist.
+- The extra source helps with broader language coverage, including many Hebrew songs.
 - If no lyrics are found (or provider is down), the app shows a friendly fallback message.
