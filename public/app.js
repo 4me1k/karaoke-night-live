@@ -22,6 +22,7 @@ const customLyricsSong = document.getElementById("customLyricsSong");
 const customLyricsArtist = document.getElementById("customLyricsArtist");
 const customLyricsText = document.getElementById("customLyricsText");
 const fillCurrentSongButton = document.getElementById("fillCurrentSongButton");
+const openShironetButton = document.getElementById("openShironetButton");
 const qrImage = document.getElementById("qrImage");
 const shareUrlText = document.getElementById("shareUrl");
 const copyLinkButton = document.getElementById("copyLinkButton");
@@ -280,6 +281,21 @@ fillCurrentSongButton.addEventListener("click", () => {
   customLyricsSong.value = now.song;
   customLyricsArtist.value = now.artist;
   customLyricsText.focus();
+});
+
+openShironetButton.addEventListener("click", () => {
+  const song = customLyricsSong.value.trim() || (latestState.currentSong && latestState.currentSong.song) || "";
+  const artist =
+    customLyricsArtist.value.trim() || (latestState.currentSong && latestState.currentSong.artist) || "";
+
+  if (!song || !artist) {
+    showStatus("Fill song and artist first (or use current song).", true);
+    return;
+  }
+
+  const query = encodeURIComponent(`${artist} ${song} שירונט`);
+  const url = `https://www.google.com/search?q=${query}`;
+  window.open(url, "_blank", "noopener,noreferrer");
 });
 
 customLyricsForm.addEventListener("submit", (event) => {
