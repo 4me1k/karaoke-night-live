@@ -11,9 +11,10 @@
       <header>
         <h1>Karaoke Night Live</h1>
         <p>Submit your song and watch the live queue update for everyone.</p>
+        <button id="modeToggleButton" type="button">Switch to TV Mode</button>
       </header>
 
-      <section class="card qr-card">
+      <section id="qrSection" class="card qr-card">
         <h2>Join By QR Code</h2>
         <p class="qr-note">Guests can scan this code to open the live karaoke page.</p>
         <div class="qr-content">
@@ -25,7 +26,7 @@
         </div>
       </section>
 
-      <section class="card admin-card">
+      <section id="adminSection" class="card admin-card">
         <h2>Host Admin</h2>
         <p class="admin-note">Only host can control next/reset/remove songs.</p>
         <form id="adminForm" class="admin-form">
@@ -41,7 +42,7 @@
         </div>
       </section>
 
-      <section class="card">
+      <section id="requestSection" class="card">
         <h2>Add Song Request</h2>
         <form id="requestForm">
           <label>
@@ -61,18 +62,23 @@
         <p id="statusMessage" class="status"></p>
       </section>
 
-      <section class="card now-playing">
+      <section id="nowPlayingSection" class="card now-playing">
         <h2>Now Singing</h2>
         <div id="currentSong" class="song-empty">No one is singing right now.</div>
       </section>
 
-      <section class="card lyrics-card">
+      <section id="nextSongSection" class="card hidden">
+        <h2>Up Next</h2>
+        <div id="nextSongContent" class="song-empty">No songs in queue yet.</div>
+      </section>
+
+      <section id="lyricsSection" class="card hidden">
         <h2>Live Lyrics</h2>
         <p id="lyricsMeta" class="lyrics-meta">Lyrics will appear for the current song.</p>
         <pre id="lyricsContent" class="lyrics-content">No song playing yet.</pre>
       </section>
 
-      <section class="card queue">
+      <section id="queueSection" class="card queue">
         <div class="queue-header">
           <h2>Next Songs</h2>
           <div id="adminControls" class="controls hidden">

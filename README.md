@@ -13,7 +13,7 @@ Simple real-time karaoke queue app for parties.
 - Everyone sees:
   - Current song (now singing)
   - Next songs in the queue
-  - Live lyrics for current song (when available)
+  - TV mode on the same URL (toggle button) for current song, next song, and live lyrics
 - Host controls (admin PIN only):
   - Move to next song
   - Reset queue
@@ -29,7 +29,8 @@ Simple real-time karaoke queue app for parties.
 
 2. Open:
 
-   [http://localhost:3000](http://localhost:3000)
+   - Main screen: [http://localhost:3000](http://localhost:3000)
+   - Use the **Switch to TV Mode** button to change the layout
 
 Open the same URL on multiple devices in the same network (using your computer IP) to use it live during karaoke night.
 

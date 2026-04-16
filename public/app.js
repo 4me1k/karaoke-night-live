@@ -4,6 +4,14 @@ const currentSong = document.getElementById("currentSong");
 const queueList = document.getElementById("queueList");
 const nextButton = document.getElementById("nextButton");
 const resetButton = document.getElementById("resetButton");
+const modeToggleButton = document.getElementById("modeToggleButton");
+const qrSection = document.getElementById("qrSection");
+const adminSection = document.getElementById("adminSection");
+const requestSection = document.getElementById("requestSection");
+const queueSection = document.getElementById("queueSection");
+const nextSongSection = document.getElementById("nextSongSection");
+const nextSongContent = document.getElementById("nextSongContent");
+const lyricsSection = document.getElementById("lyricsSection");
 const adminControls = document.getElementById("adminControls");
 const adminForm = document.getElementById("adminForm");
 const adminPinInput = document.getElementById("adminPin");
@@ -17,6 +25,7 @@ const lyricsContent = document.getElementById("lyricsContent");
 const ADMIN_PIN_STORAGE_KEY = "karaoke-admin-pin";
 let adminPin = localStorage.getItem(ADMIN_PIN_STORAGE_KEY) || "";
 let isAdmin = false;
+let isTvMode = false;
 let currentLyricsKey = "";
 let lyricsRequestToken = 0;
 
@@ -36,6 +45,23 @@ function renderCurrentSong(item) {
   currentSong.innerHTML = `
     <strong>${item.song}</strong> - ${item.artist}<br/>
     <span>Requested by ${item.requester}</span>
+  `;
+}
+
+function renderNextSong(queue) {
+  const nextSong = queue[0];
+  if (!nextSong) {
+    nextSongContent.className = "song-empty";
+    nextSongContent.textContent = "No songs in queue yet.";
+    return;
+  }
+
+  nextSongContent.className = "tv-next-content";
+  nextSongContent.innerHTML = `
+    <div class="tv-next-label">Next Song</div>
+    <div class="tv-song-title">${nextSong.song}</div>
+    <div class="tv-song-artist">${nextSong.artist}</div>
+    <div class="tv-song-requester">Singer: ${nextSong.requester}</div>
   `;
 }
 
@@ -72,8 +98,8 @@ function loadLyricsForCurrentSong(item) {
     .catch((error) => {
       if (requestToken !== lyricsRequestToken) return;
       setLyricsText(
-        `No lyrics found for ${item.song} - ${item.artist}.`,
-        error.message || "Lyrics unavailable right now."
+        `Lyrics unavailable for ${item.song} - ${item.artist}.`,
+        error.message || "Try again later."
       );
     });
 }
@@ -92,7 +118,7 @@ function renderQueue(queue) {
   queue.forEach((item, index) => {
     const li = document.createElement("li");
     li.className = "song-item";
-    const adminActions = isAdmin
+    const adminActions = isAdmin && !isTvMode
       ? `<button class="small danger remove-song-button" type="button" data-song-id="${item.id}">Remove</button>`
       : "";
     li.innerHTML = `
@@ -115,9 +141,31 @@ function getAdminHeaders() {
 
 function setAdminUI(enabled) {
   isAdmin = enabled;
-  adminControls.classList.toggle("hidden", !enabled);
-  adminSession.classList.toggle("hidden", !enabled);
-  adminForm.classList.toggle("hidden", enabled);
+  adminControls.classList.toggle("hidden", !enabled || isTvMode);
+  adminSession.classList.toggle("hidden", !enabled || isTvMode);
+  adminForm.classList.toggle("hidden", enabled || isTvMode);
+}
+
+function syncModeToUrl() {
+  const url = new URL(window.location.href);
+  if (isTvMode) {
+    url.searchParams.set("mode", "tv");
+  } else {
+    url.searchParams.delete("mode");
+  }
+  window.history.replaceState({}, "", url.toString());
+}
+
+function applyMode() {
+  document.body.classList.toggle("tv-mode", isTvMode);
+  qrSection.classList.toggle("hidden", isTvMode);
+  adminSection.classList.toggle("hidden", isTvMode);
+  requestSection.classList.toggle("hidden", isTvMode);
+  queueSection.classList.toggle("hidden", isTvMode);
+  nextSongSection.classList.toggle("hidden", !isTvMode);
+  lyricsSection.classList.toggle("hidden", !isTvMode);
+  modeToggleButton.textContent = isTvMode ? "Back to Request/Admin Mode" : "Switch to TV Mode";
+  setAdminUI(isAdmin);
 }
 
 async function verifyAdminPin(pin) {
@@ -158,6 +206,15 @@ qrImage.addEventListener("error", () => {
 
 loadQrWithFallback();
 shareUrlText.textContent = shareUrl;
+
+isTvMode = new URLSearchParams(window.location.search).get("mode") === "tv";
+applyMode();
+
+modeToggleButton.addEventListener("click", () => {
+  isTvMode = !isTvMode;
+  syncModeToUrl();
+  applyMode();
+});
 
 copyLinkButton.addEventListener("click", async () => {
   try {
@@ -303,6 +360,7 @@ const events = new EventSource("/api/events");
 events.onmessage = (event) => {
   const data = JSON.parse(event.data);
   renderCurrentSong(data.currentSong);
+  renderNextSong(data.queue || []);
   loadLyricsForCurrentSong(data.currentSong);
   renderQueue(data.queue);
 };
@@ -314,6 +372,7 @@ fetch("/api/state")
   .then((response) => response.json())
   .then((data) => {
     renderCurrentSong(data.currentSong);
+    renderNextSong(data.queue || []);
     loadLyricsForCurrentSong(data.currentSong);
     renderQueue(data.queue);
   })

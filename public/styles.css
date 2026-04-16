@@ -19,6 +19,10 @@ header {
   margin-bottom: 16px;
 }
 
+.header-link {
+  margin-top: 8px;
+}
+
 h1 {
   margin: 0 0 6px;
 }
@@ -166,6 +170,109 @@ button:hover {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 10px;
   padding: 12px;
+}
+
+.tv-body {
+  background: #120b1f;
+}
+
+.tv-app {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.tv-header {
+  margin-bottom: 18px;
+}
+
+.tv-header h1 {
+  font-size: 42px;
+}
+
+.tv-header p {
+  font-size: 20px;
+}
+
+.tv-now-card,
+.tv-next-card,
+.tv-lyrics-card {
+  margin-bottom: 14px;
+}
+
+.tv-now-content,
+.tv-next-content {
+  display: grid;
+  gap: 6px;
+}
+
+.tv-song-title {
+  font-size: 42px;
+  font-weight: 700;
+  color: #ffe79a;
+}
+
+.tv-song-artist {
+  font-size: 28px;
+  color: #ddd6f2;
+}
+
+.tv-song-requester {
+  font-size: 22px;
+  color: #b8f8c8;
+}
+
+.tv-next-label {
+  font-size: 16px;
+  color: #d4cee4;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.tv-now-empty,
+.tv-next-empty {
+  font-size: 30px;
+  color: #d4cee4;
+  font-style: italic;
+}
+
+body.tv-mode .app {
+  max-width: 1200px;
+}
+
+body.tv-mode header h1 {
+  font-size: 42px;
+}
+
+body.tv-mode header p {
+  font-size: 20px;
+}
+
+body.tv-mode #currentSong {
+  font-size: 30px;
+  line-height: 1.45;
+}
+
+body.tv-mode #currentSong strong {
+  font-size: 44px;
+}
+
+body.tv-mode #lyricsContent {
+  font-size: 26px;
+  max-height: 46vh;
+}
+
+.tv-lyrics-content {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.55;
+  max-height: 48vh;
+  overflow-y: auto;
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 26px;
 }
 
 .queue-header {
