@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Karaoke Night Live</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header>
+        <h1>Karaoke Night Live</h1>
+        <p>Submit your song and watch the live queue update for everyone.</p>
+      </header>
+
+      <section class="card">
+        <h2>Add Song Request</h2>
+        <form id="requestForm">
+          <label>
+            Song
+            <input id="song" name="song" type="text" placeholder="Ex: Dancing Queen" required />
+          </label>
+          <label>
+            Artist
+            <input id="artist" name="artist" type="text" placeholder="Ex: ABBA" required />
+          </label>
+          <label>
+            Your Name
+            <input id="requester" name="requester" type="text" placeholder="Ex: Kim" required />
+          </label>
+          <button type="submit">Add to Queue</button>
+        </form>
+        <p id="statusMessage" class="status"></p>
+      </section>
+
+      <section class="card now-playing">
+        <h2>Now Singing</h2>
+        <div id="currentSong" class="song-empty">No one is singing right now.</div>
+      </section>
+
+      <section class="card queue">
+        <div class="queue-header">
+          <h2>Next Songs</h2>
+          <div class="controls">
+            <button id="nextButton" type="button">Next Song</button>
+            <button id="resetButton" type="button" class="danger">Reset Queue</button>
+          </div>
+        </div>
+        <ul id="queueList"></ul>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

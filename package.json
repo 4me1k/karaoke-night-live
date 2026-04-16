@@ -1,0 +1,10 @@
+{
+  "name": "karaoke-night-live",
+  "version": "1.0.0",
+  "description": "Live karaoke request queue app",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  }
+}
