@@ -13,12 +13,13 @@ Simple real-time karaoke queue app for parties.
 - Everyone sees:
   - Current song (now singing)
   - Next songs in the queue
-  - TV mode on the same URL (toggle button) for current song, next song, and live lyrics
+  - TV mode on the same URL (toggle button) for current song, next song, live lyrics, and live chords
+  - Chords transpose controls in TV mode (`-1`, `Reset`, `+1`)
 - Host controls (admin PIN only):
   - Move to next song
   - Reset queue
   - Remove a specific song from queue
-  - Save custom lyrics for songs (useful for Hebrew songs missing in providers)
+  - Save custom lyrics/chords for songs (useful for Hebrew songs missing in providers)
 
 ## Run locally
 
@@ -49,4 +50,5 @@ Open the same URL on multiple devices in the same network (using your computer I
 - Lyrics are fetched live from multiple public providers (`lyrics.ovh` + `lrclib.net`) using song + artist.
 - The extra source helps with broader language coverage, including many Hebrew songs.
 - If no lyrics are found (or provider is down), the app shows a friendly fallback message.
-- Admin can add manual lyrics from the Host Admin panel; those custom lyrics are used first and saved locally.
+- Admin can add manual lyrics/chords from the Host Admin panel; custom content is saved locally and used first.
+- Admin helper buttons can open search for Shironet/Tab4U so you can copy-paste Hebrew lyrics/chords quickly.

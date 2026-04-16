@@ -204,6 +204,29 @@ button:hover {
   padding: 12px;
 }
 
+.chords-content {
+  font-family: "Courier New", Courier, monospace;
+}
+
+.transpose-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.transpose-controls button {
+  padding: 6px 10px;
+  font-size: 13px;
+}
+
+.transpose-value {
+  min-width: 36px;
+  text-align: center;
+  font-weight: 700;
+  color: #ffe79a;
+}
+
 .tv-body {
   background: #120b1f;
 }
@@ -292,6 +315,11 @@ body.tv-mode #currentSong strong {
 body.tv-mode #lyricsContent {
   font-size: 26px;
   max-height: 46vh;
+}
+
+body.tv-mode #chordsContent {
+  font-size: 24px;
+  max-height: 42vh;
 }
 
 .tv-lyrics-content {

@@ -39,7 +39,7 @@
         <div id="adminSession" class="admin-session hidden">
           <p class="admin-ok">Admin mode enabled.</p>
           <section class="custom-lyrics-admin">
-            <h3>Add Custom Lyrics (Hebrew)</h3>
+            <h3>Add Custom Lyrics + Chords</h3>
             <form id="customLyricsForm" class="custom-lyrics-form">
               <label>
                 Song
@@ -53,10 +53,15 @@
                 Lyrics
                 <textarea id="customLyricsText" rows="7" placeholder="Paste lyrics here"></textarea>
               </label>
+              <label>
+                Chords
+                <textarea id="customChordsText" rows="6" placeholder="Paste chords here (ex: Am F C G)"></textarea>
+              </label>
               <div class="custom-lyrics-actions">
                 <button id="fillCurrentSongButton" type="button">Use Current Song</button>
                 <button id="openShironetButton" type="button">Open Shironet Search</button>
-                <button type="submit">Save Custom Lyrics</button>
+                <button id="openTab4uButton" type="button">Open Tab4U Search</button>
+                <button type="submit">Save Song Content</button>
               </div>
             </form>
           </section>
@@ -98,6 +103,18 @@
         <h2>Live Lyrics</h2>
         <p id="lyricsMeta" class="lyrics-meta">Lyrics will appear for the current song.</p>
         <pre id="lyricsContent" class="lyrics-content">No song playing yet.</pre>
+      </section>
+
+      <section id="chordsSection" class="card hidden">
+        <h2>Live Chords</h2>
+        <div class="transpose-controls">
+          <button id="transposeDownButton" type="button">-1</button>
+          <button id="transposeResetButton" type="button">Reset</button>
+          <button id="transposeUpButton" type="button">+1</button>
+          <span id="transposeValue" class="transpose-value">0</span>
+        </div>
+        <p id="chordsMeta" class="lyrics-meta">Chords will appear for the current song.</p>
+        <pre id="chordsContent" class="lyrics-content chords-content">No chords yet.</pre>
       </section>
 
       <section id="queueSection" class="card queue">

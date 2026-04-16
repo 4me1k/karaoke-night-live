@@ -8,14 +8,14 @@ const PORT = process.env.PORT || 3000;
 const ADMIN_PIN = process.env.ADMIN_PIN || "karaoke123";
 const PUBLIC_DIR = path.join(__dirname, "public");
 const DATA_DIR = path.join(__dirname, "data");
-const CUSTOM_LYRICS_FILE = path.join(DATA_DIR, "custom-lyrics.json");
+const CUSTOM_SONG_DATA_FILE = path.join(DATA_DIR, "custom-song-data.json");
 
 let queue = [];
 let currentSong = null;
 let nextId = 1;
 const sseClients = new Set();
 const lyricsCache = new Map();
-const customLyrics = new Map();
+const customSongData = new Map();
 
 function normalizeLyricsKeyPart(value) {
   return String(value || "")
@@ -31,9 +31,9 @@ function makeLyricsKey(artist, song) {
   return `${normalizeLyricsKeyPart(artist)}::${normalizeLyricsKeyPart(song)}`;
 }
 
-function loadCustomLyrics() {
+function loadCustomSongData() {
   try {
-    const fileData = fs.readFileSync(CUSTOM_LYRICS_FILE, "utf-8");
+    const fileData = fs.readFileSync(CUSTOM_SONG_DATA_FILE, "utf-8");
     const parsed = JSON.parse(fileData);
     if (!Array.isArray(parsed)) return;
 
@@ -41,24 +41,27 @@ function loadCustomLyrics() {
       const artist = String(item.artist || "").trim();
       const song = String(item.song || "").trim();
       const lyrics = String(item.lyrics || "").trim();
-      if (!artist || !song || !lyrics) continue;
+      const chords = String(item.chords || "").trim();
+      if (!artist || !song) continue;
+      if (!lyrics && !chords) continue;
 
-      customLyrics.set(makeLyricsKey(artist, song), {
+      customSongData.set(makeLyricsKey(artist, song), {
         artist,
         song,
         lyrics,
+        chords,
         updatedAt: Number(item.updatedAt) || Date.now()
       });
     }
   } catch (_error) {
-    // No custom lyrics file yet.
+    // No custom song data file yet.
   }
 }
 
-function saveCustomLyrics() {
-  const payload = Array.from(customLyrics.values());
+function saveCustomSongData() {
+  const payload = Array.from(customSongData.values());
   fs.mkdirSync(DATA_DIR, { recursive: true });
-  fs.writeFileSync(CUSTOM_LYRICS_FILE, JSON.stringify(payload, null, 2), "utf-8");
+  fs.writeFileSync(CUSTOM_SONG_DATA_FILE, JSON.stringify(payload, null, 2), "utf-8");
 }
 
 function getState() {
@@ -152,12 +155,12 @@ async function fetchFromLrcLib(artist, song) {
 
 async function getLyrics(artist, song) {
   const lyricsKey = makeLyricsKey(artist, song);
-  const manualLyrics = customLyrics.get(lyricsKey);
-  if (manualLyrics) {
+  const manualSongData = customSongData.get(lyricsKey);
+  if (manualSongData && manualSongData.lyrics) {
     return {
-      artist: manualLyrics.artist,
-      song: manualLyrics.song,
-      lyrics: manualLyrics.lyrics,
+      artist: manualSongData.artist,
+      song: manualSongData.song,
+      lyrics: manualSongData.lyrics,
       source: "manual"
     };
   }
@@ -195,6 +198,21 @@ async function getLyrics(artist, song) {
   };
   lyricsCache.set(cacheKey, result);
   return result;
+}
+
+function getChords(artist, song) {
+  const key = makeLyricsKey(artist, song);
+  const manualSongData = customSongData.get(key);
+  if (!manualSongData || !manualSongData.chords) {
+    throw new Error("Chords not found.");
+  }
+
+  return {
+    artist: manualSongData.artist,
+    song: manualSongData.song,
+    chords: manualSongData.chords,
+    source: "manual"
+  };
 }
 
 function isAdminRequest(request) {
@@ -260,7 +278,7 @@ function serveStatic(requestPath, response) {
   });
 }
 
-loadCustomLyrics();
+loadCustomSongData();
 
 const server = http.createServer(async (request, response) => {
   const parsedUrl = new URL(request.url, `http://${request.headers.host}`);
@@ -290,6 +308,24 @@ const server = http.createServer(async (request, response) => {
         return;
       }
       sendJson(response, 502, { error: "Lyrics providers unavailable right now." });
+    }
+    return;
+  }
+
+  if (request.method === "GET" && pathname === "/api/chords") {
+    const song = String(parsedUrl.searchParams.get("song") || "").trim();
+    const artist = String(parsedUrl.searchParams.get("artist") || "").trim();
+
+    if (!song || !artist) {
+      sendJson(response, 400, { error: "Song and artist are required." });
+      return;
+    }
+
+    try {
+      const chordsResult = getChords(artist, song);
+      sendJson(response, 200, { ok: true, ...chordsResult });
+    } catch (_error) {
+      sendJson(response, 404, { error: "Chords not found." });
     }
     return;
   }
@@ -369,14 +405,43 @@ const server = http.createServer(async (request, response) => {
       }
 
       const key = makeLyricsKey(artist, song);
-      customLyrics.set(key, {
+      const existing = customSongData.get(key) || { artist, song, chords: "" };
+      customSongData.set(key, { ...existing, artist, song, lyrics, updatedAt: Date.now() });
+      lyricsCache.delete(key);
+      saveCustomSongData();
+      sendJson(response, 200, { ok: true });
+      return;
+    } catch (_error) {
+      sendJson(response, 400, { error: "Invalid request body." });
+      return;
+    }
+  }
+
+  if (request.method === "POST" && pathname === "/api/song/custom") {
+    if (!requireAdmin(request, response)) return;
+    try {
+      const payload = await parseBody(request);
+      const artist = String(payload.artist || "").trim();
+      const song = String(payload.song || "").trim();
+      const lyrics = String(payload.lyrics || "").trim();
+      const chords = String(payload.chords || "").trim();
+
+      if (!artist || !song || (!lyrics && !chords)) {
+        sendJson(response, 400, { error: "Artist, song and at least lyrics or chords are required." });
+        return;
+      }
+
+      const key = makeLyricsKey(artist, song);
+      const existing = customSongData.get(key) || {};
+      customSongData.set(key, {
         artist,
         song,
-        lyrics,
+        lyrics: lyrics || String(existing.lyrics || "").trim(),
+        chords: chords || String(existing.chords || "").trim(),
         updatedAt: Date.now()
       });
       lyricsCache.delete(key);
-      saveCustomLyrics();
+      saveCustomSongData();
       sendJson(response, 200, { ok: true });
       return;
     } catch (_error) {

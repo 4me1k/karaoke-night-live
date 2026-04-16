@@ -21,20 +21,47 @@ const customLyricsForm = document.getElementById("customLyricsForm");
 const customLyricsSong = document.getElementById("customLyricsSong");
 const customLyricsArtist = document.getElementById("customLyricsArtist");
 const customLyricsText = document.getElementById("customLyricsText");
+const customChordsText = document.getElementById("customChordsText");
 const fillCurrentSongButton = document.getElementById("fillCurrentSongButton");
 const openShironetButton = document.getElementById("openShironetButton");
+const openTab4uButton = document.getElementById("openTab4uButton");
 const qrImage = document.getElementById("qrImage");
 const shareUrlText = document.getElementById("shareUrl");
 const copyLinkButton = document.getElementById("copyLinkButton");
 const lyricsMeta = document.getElementById("lyricsMeta");
 const lyricsContent = document.getElementById("lyricsContent");
+const chordsSection = document.getElementById("chordsSection");
+const chordsMeta = document.getElementById("chordsMeta");
+const chordsContent = document.getElementById("chordsContent");
+const transposeDownButton = document.getElementById("transposeDownButton");
+const transposeResetButton = document.getElementById("transposeResetButton");
+const transposeUpButton = document.getElementById("transposeUpButton");
+const transposeValue = document.getElementById("transposeValue");
 const ADMIN_PIN_STORAGE_KEY = "karaoke-admin-pin";
 let adminPin = localStorage.getItem(ADMIN_PIN_STORAGE_KEY) || "";
 let isAdmin = false;
 let isTvMode = false;
 let currentLyricsKey = "";
 let lyricsRequestToken = 0;
+let currentChordsKey = "";
+let chordsRequestToken = 0;
 let latestState = { currentSong: null, queue: [] };
+let transposeSemitones = 0;
+let currentRawChords = "";
+const SHARP_SCALE = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const FLAT_SCALE = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+const ENHARMONIC_TO_SHARP = {
+  Cb: "B",
+  Db: "C#",
+  Eb: "D#",
+  Fb: "E",
+  Gb: "F#",
+  Ab: "G#",
+  Bb: "A#",
+  E#: "F",
+  B#: "C"
+};
+const CHORD_REGEX = /(^|[\s|])([A-G](?:#|b)?)([^\/\s|]*)(?:\/([A-G](?:#|b)?))?/g;
 
 function showStatus(message, isError = false) {
   statusMessage.textContent = message;
@@ -77,6 +104,52 @@ function setLyricsText(metaText, bodyText) {
   lyricsContent.textContent = bodyText;
 }
 
+function setChordsText(metaText, bodyText) {
+  chordsMeta.textContent = metaText;
+  chordsContent.textContent = bodyText;
+}
+
+function normalizeRoot(root) {
+  return ENHARMONIC_TO_SHARP[root] || root;
+}
+
+function transposeRoot(root, semitones) {
+  const normalized = normalizeRoot(root);
+  const index = SHARP_SCALE.indexOf(normalized);
+  if (index === -1) return root;
+
+  const useFlat = root.includes("b") && !root.includes("#");
+  const scale = useFlat ? FLAT_SCALE : SHARP_SCALE;
+  const nextIndex = (index + semitones + 1200) % 12;
+  return scale[nextIndex];
+}
+
+function transposeChordsText(text, semitones) {
+  if (!text || !semitones) return text;
+  return text.replace(CHORD_REGEX, (_match, prefix, root, suffix, bassRoot) => {
+    const main = transposeRoot(root, semitones);
+    const bass = bassRoot ? `/${transposeRoot(bassRoot, semitones)}` : "";
+    return `${prefix}${main}${suffix || ""}${bass}`;
+  });
+}
+
+function updateTransposeDisplay() {
+  const prefix = transposeSemitones > 0 ? "+" : "";
+  transposeValue.textContent = `${prefix}${transposeSemitones}`;
+}
+
+function renderCurrentChords() {
+  if (!currentRawChords) {
+    setChordsText("Chords will appear for the current song.", "No chords yet.");
+    return;
+  }
+
+  const transposed = transposeChordsText(currentRawChords, transposeSemitones);
+  const transposeLabel = transposeSemitones === 0 ? "Original key" : `Transpose ${transposeSemitones > 0 ? "+" : ""}${transposeSemitones}`;
+  const currentMeta = chordsMeta.textContent.includes("|") ? chordsMeta.textContent.split("|")[0].trim() : chordsMeta.textContent;
+  setChordsText(`${currentMeta} | ${transposeLabel}`, transposed);
+}
+
 function loadLyricsForCurrentSong(item, forceReload = false) {
   if (!item) {
     currentLyricsKey = "";
@@ -111,6 +184,45 @@ function loadLyricsForCurrentSong(item, forceReload = false) {
       setLyricsText(
         `Lyrics unavailable for ${item.song} - ${item.artist}.`,
         error.message || "Try again later."
+      );
+    });
+}
+
+function loadChordsForCurrentSong(item, forceReload = false) {
+  if (!item) {
+    currentChordsKey = "";
+    currentRawChords = "";
+    setChordsText("Chords will appear for the current song.", "No song playing yet.");
+    return;
+  }
+
+  const nextKey = `${item.artist}::${item.song}`.toLowerCase();
+  if (!forceReload && nextKey === currentChordsKey) return;
+  currentChordsKey = nextKey;
+  chordsRequestToken += 1;
+  const requestToken = chordsRequestToken;
+
+  setChordsText(`Loading chords for ${item.song} - ${item.artist}...`, "Please wait...");
+
+  const params = new URLSearchParams({ artist: item.artist, song: item.song });
+  fetch(`/api/chords?${params.toString()}`)
+    .then(async (response) => {
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || "Chords not found.");
+      }
+      if (requestToken !== chordsRequestToken) return;
+      const sourceLabel = data.source === "manual" ? " (custom)" : "";
+      currentRawChords = data.chords || "";
+      setChordsText(`Chords for ${data.song} - ${data.artist}${sourceLabel}`, data.chords || "Chords unavailable.");
+      renderCurrentChords();
+    })
+    .catch((error) => {
+      if (requestToken !== chordsRequestToken) return;
+      currentRawChords = "";
+      setChordsText(
+        `Chords unavailable for ${item.song} - ${item.artist}.`,
+        error.message || "Add custom chords in admin mode."
       );
     });
 }
@@ -175,6 +287,7 @@ function applyMode() {
   queueSection.classList.toggle("hidden", isTvMode);
   nextSongSection.classList.toggle("hidden", !isTvMode);
   lyricsSection.classList.toggle("hidden", !isTvMode);
+  chordsSection.classList.toggle("hidden", !isTvMode);
   modeToggleButton.textContent = isTvMode ? "Back to Request/Admin Mode" : "Switch to TV Mode";
   setAdminUI(isAdmin);
 }
@@ -225,6 +338,26 @@ modeToggleButton.addEventListener("click", () => {
   isTvMode = !isTvMode;
   syncModeToUrl();
   applyMode();
+});
+
+transposeDownButton.addEventListener("click", () => {
+  transposeSemitones -= 1;
+  if (transposeSemitones < -6) transposeSemitones = -6;
+  updateTransposeDisplay();
+  renderCurrentChords();
+});
+
+transposeUpButton.addEventListener("click", () => {
+  transposeSemitones += 1;
+  if (transposeSemitones > 6) transposeSemitones = 6;
+  updateTransposeDisplay();
+  renderCurrentChords();
+});
+
+transposeResetButton.addEventListener("click", () => {
+  transposeSemitones = 0;
+  updateTransposeDisplay();
+  renderCurrentChords();
 });
 
 copyLinkButton.addEventListener("click", async () => {
@@ -298,35 +431,52 @@ openShironetButton.addEventListener("click", () => {
   window.open(url, "_blank", "noopener,noreferrer");
 });
 
+openTab4uButton.addEventListener("click", () => {
+  const song = customLyricsSong.value.trim() || (latestState.currentSong && latestState.currentSong.song) || "";
+  const artist =
+    customLyricsArtist.value.trim() || (latestState.currentSong && latestState.currentSong.artist) || "";
+
+  if (!song || !artist) {
+    showStatus("Fill song and artist first (or use current song).", true);
+    return;
+  }
+
+  const query = encodeURIComponent(`site:tab4u.com ${artist} ${song} אקורדים`);
+  const url = `https://www.google.com/search?q=${query}`;
+  window.open(url, "_blank", "noopener,noreferrer");
+});
+
 customLyricsForm.addEventListener("submit", (event) => {
   event.preventDefault();
 
   const song = customLyricsSong.value.trim();
   const artist = customLyricsArtist.value.trim();
   const lyrics = customLyricsText.value.trim();
+  const chords = customChordsText.value.trim();
 
-  if (!song || !artist || !lyrics) {
-    showStatus("Please fill song, artist, and lyrics.", true);
+  if (!song || !artist || (!lyrics && !chords)) {
+    showStatus("Please fill song, artist, and add lyrics or chords.", true);
     return;
   }
 
-  fetch("/api/lyrics/custom", {
+  fetch("/api/song/custom", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...getAdminHeaders() },
-    body: JSON.stringify({ song, artist, lyrics })
+    body: JSON.stringify({ song, artist, lyrics, chords })
   })
     .then(async (response) => {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(data.error || "Could not save custom lyrics.");
+        throw new Error(data.error || "Could not save song content.");
       }
-      showStatus("Custom lyrics saved.");
+      showStatus("Custom song content saved.");
       if (
         latestState.currentSong &&
         latestState.currentSong.song.toLowerCase() === song.toLowerCase() &&
         latestState.currentSong.artist.toLowerCase() === artist.toLowerCase()
       ) {
         loadLyricsForCurrentSong(latestState.currentSong, true);
+        loadChordsForCurrentSong(latestState.currentSong, true);
       }
     })
     .catch((error) => {
@@ -442,6 +592,7 @@ events.onmessage = (event) => {
   renderCurrentSong(data.currentSong);
   renderNextSong(data.queue || []);
   loadLyricsForCurrentSong(data.currentSong);
+  loadChordsForCurrentSong(data.currentSong);
   renderQueue(data.queue);
 };
 events.onerror = () => {
@@ -455,6 +606,7 @@ fetch("/api/state")
     renderCurrentSong(data.currentSong);
     renderNextSong(data.queue || []);
     loadLyricsForCurrentSong(data.currentSong);
+    loadChordsForCurrentSong(data.currentSong);
     renderQueue(data.queue);
   })
   .catch(() => {
@@ -474,3 +626,5 @@ if (adminPin) {
 } else {
   setAdminUI(false);
 }
+
+updateTransposeDisplay();
