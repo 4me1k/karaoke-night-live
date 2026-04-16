@@ -51,15 +51,15 @@ let currentRawChords = "";
 const SHARP_SCALE = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const FLAT_SCALE = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
 const ENHARMONIC_TO_SHARP = {
-  Cb: "B",
-  Db: "C#",
-  Eb: "D#",
-  Fb: "E",
-  Gb: "F#",
-  Ab: "G#",
-  Bb: "A#",
-  E#: "F",
-  B#: "C"
+  "Cb": "B",
+  "Db": "C#",
+  "Eb": "D#",
+  "Fb": "E",
+  "Gb": "F#",
+  "Ab": "G#",
+  "Bb": "A#",
+  "E#": "F",
+  "B#": "C"
 };
 const CHORD_REGEX = /(^|[\s|])([A-G](?:#|b)?)([^\/\s|]*)(?:\/([A-G](?:#|b)?))?/g;
 
