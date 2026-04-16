@@ -4,6 +4,7 @@ const path = require("path");
 const { URL } = require("url");
 
 const PORT = process.env.PORT || 3000;
+const ADMIN_PIN = process.env.ADMIN_PIN || "karaoke123";
 const PUBLIC_DIR = path.join(__dirname, "public");
 
 let queue = [];
@@ -26,6 +27,19 @@ function broadcastState() {
 function sendJson(response, statusCode, data) {
   response.writeHead(statusCode, { "Content-Type": "application/json; charset=utf-8" });
   response.end(JSON.stringify(data));
+}
+
+function isAdminRequest(request) {
+  const pin = String(request.headers["x-admin-pin"] || "").trim();
+  return pin && pin === ADMIN_PIN;
+}
+
+function requireAdmin(request, response) {
+  if (!isAdminRequest(request)) {
+    sendJson(response, 403, { error: "Admin access required." });
+    return false;
+  }
+  return true;
 }
 
 function parseBody(request) {
@@ -130,7 +144,26 @@ const server = http.createServer(async (request, response) => {
     }
   }
 
+  if (request.method === "POST" && pathname === "/api/admin/login") {
+    try {
+      const payload = await parseBody(request);
+      const pin = String(payload.pin || "").trim();
+
+      if (!pin || pin !== ADMIN_PIN) {
+        sendJson(response, 401, { error: "Wrong admin PIN." });
+        return;
+      }
+
+      sendJson(response, 200, { ok: true });
+      return;
+    } catch (_error) {
+      sendJson(response, 400, { error: "Invalid request body." });
+      return;
+    }
+  }
+
   if (request.method === "POST" && pathname === "/api/next") {
+    if (!requireAdmin(request, response)) return;
     currentSong = queue.shift() || null;
     broadcastState();
     sendJson(response, 200, { ok: true });
@@ -138,12 +171,41 @@ const server = http.createServer(async (request, response) => {
   }
 
   if (request.method === "POST" && pathname === "/api/reset") {
+    if (!requireAdmin(request, response)) return;
     currentSong = null;
     queue = [];
     nextId = 1;
     broadcastState();
     sendJson(response, 200, { ok: true });
     return;
+  }
+
+  if (request.method === "POST" && pathname === "/api/remove") {
+    if (!requireAdmin(request, response)) return;
+    try {
+      const payload = await parseBody(request);
+      const id = Number(payload.id);
+
+      if (!Number.isInteger(id)) {
+        sendJson(response, 400, { error: "Song id is required." });
+        return;
+      }
+
+      const beforeLength = queue.length;
+      queue = queue.filter((item) => item.id !== id);
+
+      if (queue.length === beforeLength) {
+        sendJson(response, 404, { error: "Song not found in queue." });
+        return;
+      }
+
+      broadcastState();
+      sendJson(response, 200, { ok: true });
+      return;
+    } catch (_error) {
+      sendJson(response, 400, { error: "Invalid request body." });
+      return;
+    }
   }
 
   if (request.method === "GET") {

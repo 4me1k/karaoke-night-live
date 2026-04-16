@@ -25,6 +25,22 @@
         </div>
       </section>
 
+      <section class="card admin-card">
+        <h2>Host Admin</h2>
+        <p class="admin-note">Only host can control next/reset/remove songs.</p>
+        <form id="adminForm" class="admin-form">
+          <label>
+            Admin PIN
+            <input id="adminPin" name="adminPin" type="password" placeholder="Enter host PIN" />
+          </label>
+          <button type="submit">Login as Admin</button>
+        </form>
+        <div id="adminSession" class="admin-session hidden">
+          <p class="admin-ok">Admin mode enabled.</p>
+          <button id="adminLogoutButton" type="button" class="danger">Logout Admin</button>
+        </div>
+      </section>
+
       <section class="card">
         <h2>Add Song Request</h2>
         <form id="requestForm">
@@ -53,7 +69,7 @@
       <section class="card queue">
         <div class="queue-header">
           <h2>Next Songs</h2>
-          <div class="controls">
+          <div id="adminControls" class="controls hidden">
             <button id="nextButton" type="button">Next Song</button>
             <button id="resetButton" type="button" class="danger">Reset Queue</button>
           </div>

@@ -4,9 +4,17 @@ const currentSong = document.getElementById("currentSong");
 const queueList = document.getElementById("queueList");
 const nextButton = document.getElementById("nextButton");
 const resetButton = document.getElementById("resetButton");
+const adminControls = document.getElementById("adminControls");
+const adminForm = document.getElementById("adminForm");
+const adminPinInput = document.getElementById("adminPin");
+const adminSession = document.getElementById("adminSession");
+const adminLogoutButton = document.getElementById("adminLogoutButton");
 const qrImage = document.getElementById("qrImage");
 const shareUrlText = document.getElementById("shareUrl");
 const copyLinkButton = document.getElementById("copyLinkButton");
+const ADMIN_PIN_STORAGE_KEY = "karaoke-admin-pin";
+let adminPin = localStorage.getItem(ADMIN_PIN_STORAGE_KEY) || "";
+let isAdmin = false;
 
 function showStatus(message, isError = false) {
   statusMessage.textContent = message;
@@ -41,14 +49,45 @@ function renderQueue(queue) {
   queue.forEach((item, index) => {
     const li = document.createElement("li");
     li.className = "song-item";
+    const adminActions = isAdmin
+      ? `<button class="small danger remove-song-button" type="button" data-song-id="${item.id}">Remove</button>`
+      : "";
     li.innerHTML = `
-      <div>
-        <strong>#${index + 1} ${item.song}</strong> - ${item.artist}
+      <div class="song-main-row">
+        <div>
+          <strong>#${index + 1} ${item.song}</strong> - ${item.artist}
+        </div>
+        ${adminActions}
       </div>
       <div class="requester">Singer: ${item.requester}</div>
     `;
     queueList.appendChild(li);
   });
+}
+
+function getAdminHeaders() {
+  if (!adminPin) return {};
+  return { "x-admin-pin": adminPin };
+}
+
+function setAdminUI(enabled) {
+  isAdmin = enabled;
+  adminControls.classList.toggle("hidden", !enabled);
+  adminSession.classList.toggle("hidden", !enabled);
+  adminForm.classList.toggle("hidden", enabled);
+}
+
+async function verifyAdminPin(pin) {
+  const response = await fetch("/api/admin/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ pin })
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({ error: "Wrong admin PIN." }));
+    throw new Error(data.error || "Wrong admin PIN.");
+  }
 }
 
 const shareUrl = window.location.origin;
@@ -86,6 +125,41 @@ copyLinkButton.addEventListener("click", async () => {
   }
 });
 
+adminForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const pin = adminPinInput.value.trim();
+  if (!pin) {
+    showStatus("Please enter admin PIN.", true);
+    return;
+  }
+
+  try {
+    await verifyAdminPin(pin);
+    adminPin = pin;
+    localStorage.setItem(ADMIN_PIN_STORAGE_KEY, pin);
+    setAdminUI(true);
+    showStatus("Admin login successful.");
+    adminPinInput.value = "";
+    fetch("/api/state")
+      .then((response) => response.json())
+      .then((data) => renderQueue(data.queue))
+      .catch(() => {});
+  } catch (error) {
+    showStatus(error.message, true);
+  }
+});
+
+adminLogoutButton.addEventListener("click", () => {
+  adminPin = "";
+  localStorage.removeItem(ADMIN_PIN_STORAGE_KEY);
+  setAdminUI(false);
+  showStatus("Admin logged out.");
+  fetch("/api/state")
+    .then((response) => response.json())
+    .then((data) => renderQueue(data.queue))
+    .catch(() => {});
+});
+
 form.addEventListener("submit", (event) => {
   event.preventDefault();
 
@@ -114,18 +188,72 @@ form.addEventListener("submit", (event) => {
 });
 
 nextButton.addEventListener("click", () => {
-  fetch("/api/next", { method: "POST" }).catch(() => {
-    showStatus("Could not move to next song.", true);
-  });
+  fetch("/api/next", { method: "POST", headers: getAdminHeaders() })
+    .then(async (response) => {
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: "Could not move to next song." }));
+        throw new Error(data.error || "Could not move to next song.");
+      }
+    })
+    .catch((error) => {
+      showStatus(error.message, true);
+      if (error.message.includes("Admin access")) {
+        adminPin = "";
+        localStorage.removeItem(ADMIN_PIN_STORAGE_KEY);
+        setAdminUI(false);
+      }
+    });
+});
+
+queueList.addEventListener("click", (event) => {
+  const target = event.target;
+  if (!(target instanceof HTMLElement)) return;
+  if (!target.classList.contains("remove-song-button")) return;
+
+  const id = Number(target.dataset.songId);
+  if (!Number.isInteger(id)) return;
+
+  fetch("/api/remove", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...getAdminHeaders() },
+    body: JSON.stringify({ id })
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: "Could not remove song." }));
+        throw new Error(data.error || "Could not remove song.");
+      }
+      showStatus("Song removed from queue.");
+    })
+    .catch((error) => {
+      showStatus(error.message, true);
+      if (error.message.includes("Admin access")) {
+        adminPin = "";
+        localStorage.removeItem(ADMIN_PIN_STORAGE_KEY);
+        setAdminUI(false);
+      }
+    });
 });
 
 resetButton.addEventListener("click", () => {
   const confirmed = window.confirm("Reset queue for everyone?");
-  if (confirmed) {
-    fetch("/api/reset", { method: "POST" }).catch(() => {
-      showStatus("Could not reset queue.", true);
+  if (!confirmed) return;
+
+  fetch("/api/reset", { method: "POST", headers: getAdminHeaders() })
+    .then(async (response) => {
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({ error: "Could not reset queue." }));
+        throw new Error(data.error || "Could not reset queue.");
+      }
+    })
+    .catch((error) => {
+      showStatus(error.message, true);
+      if (error.message.includes("Admin access")) {
+        adminPin = "";
+        localStorage.removeItem(ADMIN_PIN_STORAGE_KEY);
+        setAdminUI(false);
+      }
     });
-  }
 });
 
 const events = new EventSource("/api/events");
@@ -147,3 +275,17 @@ fetch("/api/state")
   .catch(() => {
     showStatus("Could not load current queue.", true);
 });
+
+if (adminPin) {
+  verifyAdminPin(adminPin)
+    .then(() => {
+      setAdminUI(true);
+    })
+    .catch(() => {
+      adminPin = "";
+      localStorage.removeItem(ADMIN_PIN_STORAGE_KEY);
+      setAdminUI(false);
+    });
+} else {
+  setAdminUI(false);
+}

@@ -70,6 +70,28 @@ p {
   word-break: break-all;
 }
 
+.admin-note {
+  margin-bottom: 10px;
+}
+
+.admin-form {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-session {
+  display: grid;
+  gap: 10px;
+}
+
+.admin-ok {
+  color: #b8f8c8;
+}
+
+.hidden {
+  display: none !important;
+}
+
 form {
   display: grid;
   grid-template-columns: 1fr;
@@ -152,6 +174,18 @@ ul {
   border-radius: 10px;
   padding: 10px;
   margin-bottom: 8px;
+}
+
+.song-main-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+button.small {
+  padding: 6px 8px;
+  font-size: 12px;
 }
 
 .requester {
